@@ -2,6 +2,20 @@
 
 All notable changes to `laravel-health` will be documented in this file.
 
+## 1.40.0 - 2026-05-28
+
+### What's Changed
+
+* Move `spatie/temporary-directory` to `require-dev` by @dylanbr in https://github.com/spatie/laravel-health/pull/315
+* Use ENV variables for health notifications settings by @SebKay in https://github.com/spatie/laravel-health/pull/316
+
+### New Contributors
+
+* @dylanbr made their first contribution in https://github.com/spatie/laravel-health/pull/315
+* @SebKay made their first contribution in https://github.com/spatie/laravel-health/pull/316
+
+**Full Changelog**: https://github.com/spatie/laravel-health/compare/1.39.3...1.40.0
+
 ## 1.39.3 - 2026-05-13
 
 ### What's Changed
