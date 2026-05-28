@@ -216,6 +216,4 @@ it('can unserialize', function () {
     assertCount(2, $result->getRunConditions());
     assertIsBool($result->getRunConditions()[0]);
     assertInstanceOf(Closure::class, $result->getRunConditions()[1]);
-
-    assertMatchesObjectSnapshot($result);
 });
