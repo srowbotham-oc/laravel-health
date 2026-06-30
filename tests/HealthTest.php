@@ -11,7 +11,9 @@ use Spatie\Health\Checks\Result;
 use Spatie\Health\Enums\Status;
 use Spatie\Health\Exceptions\DuplicateCheckNamesFound;
 use Spatie\Health\Exceptions\InvalidCheck;
+use Spatie\Health\Exceptions\InvalidSuite;
 use Spatie\Health\Facades\Health;
+use Spatie\Health\Health as HealthRegistry;
 use Spatie\Health\Testing\FakeCheck;
 
 it('can register checks', function () {
@@ -24,6 +26,63 @@ it('can register checks', function () {
         ->and(Health::registeredChecks()[0])
         ->toBeInstanceOf(UsedDiskSpaceCheck::class);
 });
+
+it('can register checks in suites', function () {
+    Health::checks([
+        UsedDiskSpaceCheck::new(),
+    ]);
+
+    Health::suite('readiness', [
+        DatabaseCheck::new(),
+    ]);
+
+    expect(Health::registeredChecksForSuites(HealthRegistry::DEFAULT_SUITE))
+        ->toHaveCount(1)
+        ->and(Health::registeredChecksForSuites(HealthRegistry::DEFAULT_SUITE)->first())
+        ->toBeInstanceOf(UsedDiskSpaceCheck::class)
+        ->and(Health::registeredChecksForSuites('readiness'))
+        ->toHaveCount(1)
+        ->and(Health::registeredChecksForSuites('readiness')->first())
+        ->toBeInstanceOf(DatabaseCheck::class)
+        ->and(Health::registeredChecks())
+        ->toHaveCount(2)
+        ->and(Health::registeredSuiteNames()->all())
+        ->toBe([HealthRegistry::DEFAULT_SUITE, 'readiness']);
+});
+
+it('can register the same check in multiple suites', function () {
+    $check = UsedDiskSpaceCheck::new();
+
+    Health::checks([$check]);
+    Health::suite('readiness', [$check]);
+
+    expect(Health::registeredChecksForSuites(HealthRegistry::DEFAULT_SUITE)->first())
+        ->toBe($check)
+        ->and(Health::registeredChecksForSuites('readiness')->first())
+        ->toBe($check)
+        ->and(Health::registeredChecksForSuites([HealthRegistry::DEFAULT_SUITE, 'readiness']))
+        ->toHaveCount(1);
+});
+
+it('can register the same check in multiple suites before the default suite', function () {
+    $check = UsedDiskSpaceCheck::new();
+
+    Health::suite('readiness', [$check]);
+    Health::checks([$check]);
+
+    expect(Health::registeredChecksForSuites(HealthRegistry::DEFAULT_SUITE)->first())
+        ->toBe($check)
+        ->and(Health::registeredChecksForSuites('readiness')->first())
+        ->toBe($check)
+        ->and(Health::registeredChecks())
+        ->toHaveCount(1);
+});
+
+it('will throw an exception when registering an empty suite name', function () {
+    Health::suite('', [
+        UsedDiskSpaceCheck::new(),
+    ]);
+})->throws(InvalidSuite::class, 'A health check suite name cannot be empty.');
 
 it('can run checks conditionally using if method', function () {
     Health::checks([
@@ -128,6 +187,32 @@ it('will throw an exception when duplicate checks are registered', function () {
     ]);
 })->throws(DuplicateCheckNamesFound::class);
 
+it('will throw an exception when duplicate checks are registered across calls', function () {
+    $check = PingCheck::new();
+
+    Health::checks([
+        $check,
+    ]);
+
+    Health::checks([
+        $check,
+    ]);
+})->throws(DuplicateCheckNamesFound::class);
+
+it('will throw an exception when duplicate check names are registered across suites', function () {
+    Health::checks([
+        PingCheck::new(),
+    ]);
+
+    Health::suite('readiness', [
+        PingCheck::new(),
+    ]);
+})->throws(DuplicateCheckNamesFound::class);
+
+it('will throw an exception when retrieving a suite that is not registered', function () {
+    Health::registeredChecksForSuites('missing');
+})->throws(InvalidSuite::class);
+
 it('will not throw an exception when all checks have unique names', function () {
     Health::checks([
         PingCheck::new(),
@@ -179,6 +264,16 @@ it('can fake checks', function () {
     } else {
         $this->artisan('health:check', ['--fail-command-on-failing-check' => true])->assertFailed();
     }
+});
+
+it('can retrieve suite names after faking checks', function () {
+    Health::suite('readiness', [
+        DatabaseCheck::new(),
+    ]);
+
+    Health::fake();
+
+    expect(Health::registeredSuiteNames()->all())->toBe([HealthRegistry::DEFAULT_SUITE, 'readiness']);
 });
 
 it('does not register a container alias named "health" that would shadow a middleware of the same name', function () {

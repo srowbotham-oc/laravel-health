@@ -2,6 +2,8 @@
 
 use Spatie\Health\Commands\ListHealthChecksCommand;
 use Spatie\Health\Facades\Health;
+use Spatie\Health\Models\HealthCheckResultHistoryItem;
+use Spatie\Health\ResultStores\InMemoryHealthResultStore;
 use Spatie\Health\Tests\TestClasses\FakeUsedDiskSpaceCheck;
 
 use function Pest\Laravel\artisan;
@@ -44,4 +46,24 @@ it('can use multiple options at once', function () {
     ]);
 
     artisan('health:list --fresh --do-not-store-results --no-notification')->assertSuccessful();
+});
+
+it('can freshen results for a named suite', function () {
+    Health::checks([
+        FakeUsedDiskSpaceCheck::new()->name('Default'),
+    ]);
+
+    Health::suite('readiness', [
+        FakeUsedDiskSpaceCheck::new()->name('Readiness'),
+    ]);
+
+    artisan('health:list --fresh --suites=readiness')->assertSuccessful();
+
+    expect(app(InMemoryHealthResultStore::class)->latestResults()?->storedCheckResults->first()->name)->toBe('Readiness')
+        ->and(HealthCheckResultHistoryItem::pluck('check_name')->all())->toBe([]);
+
+    artisan('health:list --fresh --suites=readiness --do-not-store-results')->assertSuccessful();
+
+    expect(app(InMemoryHealthResultStore::class)->latestResults()?->storedCheckResults->first()->name)->toBe('Readiness')
+        ->and(HealthCheckResultHistoryItem::pluck('check_name')->all())->toBe([]);
 });

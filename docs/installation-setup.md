@@ -170,4 +170,4 @@ Schedule::command(\Spatie\Health\Commands\RunHealthChecksCommand::class)->everyM
 
 ## Running the checks by sending HTTP requests
 
-If you don't want to let your application send notification, but let a service like Oh Dear monitor the health of your app, you can trigger a run of all health checks by visiting the [HTTP endpoint](https://spatie.be/docs/laravel-health/v1/viewing-results/on-a-webpage) or [JSON endpoint](https://spatie.be/docs/laravel-health/v1/viewing-results/as-json) and use the `?fresh` parameter in the URL.
+If you don't want to let your application send notification, but let a service like Oh Dear monitor the health of your app, you can trigger a run of the default health check suite by visiting the [HTTP endpoint](https://spatie.be/docs/laravel-health/v1/viewing-results/on-a-webpage) or [JSON endpoint](https://spatie.be/docs/laravel-health/v1/viewing-results/as-json) and use the `?fresh` parameter in the URL.

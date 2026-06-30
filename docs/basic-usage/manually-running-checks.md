@@ -3,7 +3,7 @@ title: Manually running checks
 weight: 4
 ---
 
-All registered checks will run automatically when the `RunHealthChecksCommand` executes. If you followed [the installation instructions](https://spatie.be/docs/laravel-health/v1/installation-setup), you have already scheduled that command to execute every minute.
+All checks in the default suite will run automatically when the `RunHealthChecksCommand` executes without a suite option. If you followed [the installation instructions](https://spatie.be/docs/laravel-health/v1/installation-setup), you have already scheduled that command to execute every minute.
 
 You can also decide to manually run the command with:
 
@@ -12,6 +12,21 @@ php artisan health:check
 ```
 
 Use the command like that will, also stored results and send notifications. Use one or more of the options below to avoid that.
+
+## Run a suite
+
+By default, the command runs the default suite. To run one or more named suites, pass the `--suites` option.
+
+```bash
+php artisan health:check --suites=readiness
+php artisan health:check --suites=readiness,deep
+```
+
+Suite-filtered runs do not store results by default, so they do not replace the latest stored report for the default suite. If you want to store the filtered result, pass `--store-suite-results`.
+
+```bash
+php artisan health:check --suites=readiness --store-suite-results
+```
 
 ## Fail the command when a check fails
 

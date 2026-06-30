@@ -12,21 +12,34 @@ use Spatie\Health\Enums\Status;
 use Spatie\Health\Events\CheckEndedEvent;
 use Spatie\Health\Events\CheckStartingEvent;
 use Spatie\Health\Exceptions\CheckDidNotComplete;
+use Spatie\Health\Exceptions\InvalidSuite;
 use Spatie\Health\Health;
 use Spatie\Health\Notifications\Notifiable;
 use Spatie\Health\ResultStores\ResultStore;
+use Spatie\Health\Support\SuiteNames;
 
 class RunHealthChecksCommand extends Command
 {
-    protected $signature = 'health:check {--do-not-store-results} {--no-notification} {--fail-command-on-failing-check}';
+    protected $signature = 'health:check {--do-not-store-results} {--no-notification}
+                         {--fail-command-on-failing-check}
+                         {--store-suite-results : Store suite-filtered results in the configured result store}
+                         {--suites=* : Only run checks from the given suite(s)}';
 
-    protected $description = 'Run all health checks';
+    protected $description = 'Run health checks';
 
     /** @var array<int, Exception> */
     protected array $thrownExceptions = [];
 
     public function handle(): int
     {
+        try {
+            $this->selectedChecks();
+        } catch (InvalidSuite $exception) {
+            $this->error($exception->getMessage());
+
+            return self::FAILURE;
+        }
+
         if (Cache::get(PauseHealthChecksCommand::CACHE_KEY)) {
             $this->info('Checks paused');
 
@@ -41,7 +54,7 @@ class RunHealthChecksCommand extends Command
             $this->sendNotification($results);
         }
 
-        if (! $this->option('do-not-store-results')) {
+        if ($this->shouldStoreResults()) {
             $this->storeResults($results);
         }
 
@@ -83,8 +96,8 @@ class RunHealthChecksCommand extends Command
     protected function runChecks(): Collection
     {
         [$shouldRun, $skipped] = $this->splitChecksByShouldRun(
-            app(Health::class)->registeredChecks()
-        );
+            $this->selectedChecks()
+        )->all();
 
         // retain original order
         return $skipped->mapWithKeys(fn (Check $check, $i) => [
@@ -96,7 +109,10 @@ class RunHealthChecksCommand extends Command
         )->sortKeys();
     }
 
-    /** @return array{Collection<int, Check>, Collection<int, Check>}  */
+    /**
+     * @param  Collection<int, Check>  $checks
+     * @return Collection<int<0, 1>, Collection<int, Check>>
+     */
     protected function splitChecksByShouldRun(Collection $checks): Collection
     {
         return $checks->partition(fn (Check $check) => $check->shouldRun());
@@ -112,6 +128,7 @@ class RunHealthChecksCommand extends Command
         return $this;
     }
 
+    /** @param  Collection<int, Result>  $results */
     protected function sendNotification(Collection $results): self
     {
         $resultsWithMessages = $results->filter(fn (Result $result) => ! empty($result->getNotificationMessage()));
@@ -162,6 +179,7 @@ class RunHealthChecksCommand extends Command
         };
     }
 
+    /** @param  Collection<int, Result>  $results */
     protected function determineCommandResult(Collection $results): int
     {
         if (! $this->option('fail-command-on-failing-check')) {
@@ -191,5 +209,35 @@ class RunHealthChecksCommand extends Command
     protected function getFailedNotificationClass(): string
     {
         return array_key_first(config('health.notifications.notifications'));
+    }
+
+    protected function shouldStoreResults(): bool
+    {
+        if ($this->option('do-not-store-results')) {
+            return false;
+        }
+
+        if (! $this->hasSelectedSuites()) {
+            return true;
+        }
+
+        return (bool) $this->option('store-suite-results');
+    }
+
+    /** @return Collection<int, Check> */
+    protected function selectedChecks(): Collection
+    {
+        return app(Health::class)->registeredChecksForSuites($this->selectedSuiteNames());
+    }
+
+    protected function hasSelectedSuites(): bool
+    {
+        return SuiteNames::from($this->option('suites')) !== [];
+    }
+
+    /** @return array<int, string> */
+    protected function selectedSuiteNames(): array
+    {
+        return SuiteNames::requestedOrDefault($this->option('suites'));
     }
 }

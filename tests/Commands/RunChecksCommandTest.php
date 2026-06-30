@@ -34,6 +34,77 @@ it('can store the ok results in the database', function () {
         ->meta->toBe(['disk_space_used_percentage' => 0]);
 });
 
+it('runs the default suite when no suite option is given', function () {
+    Health::clearChecks()
+        ->checks([
+            FakeUsedDiskSpaceCheck::new()->name('Default'),
+        ])
+        ->suite('readiness', [
+            FakeUsedDiskSpaceCheck::new()->name('Readiness'),
+        ]);
+
+    artisan(RunHealthChecksCommand::class)->assertSuccessful();
+
+    expect(HealthCheckResultHistoryItem::pluck('check_name')->all())->toBe(['Default']);
+});
+
+it('can store a named suite when requested', function () {
+    Health::clearChecks()
+        ->checks([
+            FakeUsedDiskSpaceCheck::new()->name('Default'),
+        ])
+        ->suite('readiness', [
+            FakeUsedDiskSpaceCheck::new()->name('Readiness'),
+        ]);
+
+    artisan('health:check --suites=readiness --store-suite-results')->assertSuccessful();
+
+    expect(HealthCheckResultHistoryItem::pluck('check_name')->all())->toBe(['Readiness']);
+});
+
+it('does not store suite results by default', function () {
+    Health::clearChecks()
+        ->checks([
+            FakeUsedDiskSpaceCheck::new()->name('Default'),
+        ])
+        ->suite('readiness', [
+            FakeUsedDiskSpaceCheck::new()->name('Readiness')->fakeDiskUsagePercentage(100),
+        ]);
+
+    artisan(RunHealthChecksCommand::class)->assertSuccessful();
+    artisan('health:check --suites=readiness --fail-command-on-failing-check')->assertFailed();
+
+    expect(HealthCheckResultHistoryItem::pluck('check_name')->all())->toBe(['Default']);
+});
+
+it('can store multiple named suites when requested', function () {
+    Health::clearChecks()
+        ->suite('readiness', [
+            FakeUsedDiskSpaceCheck::new()->name('Readiness'),
+        ])
+        ->suite('deep', [
+            FakeUsedDiskSpaceCheck::new()->name('Deep'),
+        ]);
+
+    artisan('health:check --suites=readiness,deep --store-suite-results')->assertSuccessful();
+
+    expect(HealthCheckResultHistoryItem::pluck('check_name')->all())->toBe(['Readiness', 'Deep']);
+});
+
+it('fails when running an unknown suite', function () {
+    artisan('health:check --suites=missing')
+        ->expectsOutput('No health check suite named `missing` has been registered. Available suites are `default`.')
+        ->assertFailed();
+});
+
+it('fails when running an unknown suite while checks are paused', function () {
+    Cache::put(PauseHealthChecksCommand::CACHE_KEY, true);
+
+    artisan('health:check --suites=missing')
+        ->expectsOutput('No health check suite named `missing` has been registered. Available suites are `default`.')
+        ->assertFailed();
+});
+
 it('has an option that will not store the results in the database', function () {
     artisan('health:check --do-not-store-results')->assertSuccessful();
 

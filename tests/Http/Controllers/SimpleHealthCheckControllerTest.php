@@ -5,6 +5,7 @@ use Spatie\Health\Commands\PauseHealthChecksCommand;
 use Spatie\Health\Commands\RunHealthChecksCommand;
 use Spatie\Health\Facades\Health;
 use Spatie\Health\Http\Controllers\SimpleHealthCheckController;
+use Spatie\Health\Models\HealthCheckResultHistoryItem;
 use Spatie\Health\Tests\TestClasses\FakeRedisCheck;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -45,6 +46,24 @@ it('will return a 503 status for a unhealthy check', function () {
         ->json();
 
     assertMatchesSnapshot($json);
+});
+
+it('will only run the requested suite when the suites get parameter is passed', function () {
+    Health::clearChecks()
+        ->checks([
+            FakeRedisCheck::new()->name('Default Redis')->replyWith(fn () => false),
+        ])
+        ->suite('readiness', [
+            FakeRedisCheck::new()->name('Readiness Redis')->replyWith(fn () => true),
+        ]);
+
+    getJson('/?fresh&suites=readiness')->assertOk();
+
+    expect(HealthCheckResultHistoryItem::pluck('check_name')->all())->toBe([]);
+});
+
+it('will return 404 when the requested suite does not exist', function () {
+    getJson('/?suites=missing')->assertNotFound();
 });
 
 it('does not perform checks if checks are paused', function () {
