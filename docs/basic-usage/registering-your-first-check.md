@@ -22,7 +22,31 @@ Health::checks([
 ]);
 ```
 
-All registered checks will run when the `RunHealthChecksCommand` executes. If you followed [the installation instructions](https://spatie.be/docs/laravel-health/v1/installation-setup), you have already scheduled that command to execute every minute.
+Checks registered with `Health::checks()` belong to the default suite. You can register additional named suites when you want to run a smaller set of checks separately.
+
+```php
+use Spatie\Health\Facades\Health;
+use Spatie\Health\Checks\Checks\DatabaseCheck;
+use Spatie\Health\Checks\Checks\RedisCheck;
+
+Health::suite('readiness', [
+    DatabaseCheck::new(),
+    RedisCheck::new(),
+]);
+```
+
+A check can belong to multiple suites by registering the same check instance in multiple suites.
+
+```php
+$databaseCheck = DatabaseCheck::new();
+
+Health::checks([$databaseCheck]);
+Health::suite('readiness', [$databaseCheck]);
+```
+
+Check names must remain unique across all suites. If you want to register the same check class more than once, call `name()` to give each registration a unique name.
+
+All checks in the default suite will run when the `RunHealthChecksCommand` executes without a suite option. If you followed [the installation instructions](https://spatie.be/docs/laravel-health/v1/installation-setup), you have already scheduled that command to execute every minute.
 
 If you haven't scheduled that command, you could run the checks and view the results [via HTTP](https://spatie.be/docs/laravel-health/v1/viewing-results/on-a-webpage) or [JSON](https://spatie.be/docs/laravel-health/v1/viewing-results/as-json).
 

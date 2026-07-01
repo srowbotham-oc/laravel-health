@@ -9,6 +9,8 @@ use Spatie\Health\Enums\Status;
 use Spatie\Health\ResultStores\ResultStore;
 use Spatie\Health\ResultStores\StoredCheckResults\StoredCheckResult;
 use Spatie\Health\ResultStores\StoredCheckResults\StoredCheckResults;
+use Spatie\Health\Support\SuiteNames;
+use Spatie\Health\Support\TransientHealthResults;
 
 use function Termwind\render;
 use function Termwind\renderUsing;
@@ -16,27 +18,24 @@ use function Termwind\renderUsing;
 class ListHealthChecksCommand extends Command
 {
     protected $signature = 'health:list {--fresh} {--do-not-store-results} {--no-notification}
-                         {--fail-command-on-failing-check}';
+                         {--fail-command-on-failing-check}
+                         {--suites=* : Only run checks from the given suite(s) when using --fresh}';
 
     protected $description = 'List all health checks';
 
     public function handle(): int
     {
-        if ($this->option('fresh')) {
-            $parameters = [];
-            if ($this->option('do-not-store-results')) {
-                $parameters['--do-not-store-results'] = true;
-            }
-            if ($this->option('no-notification')) {
-                $parameters['--no-notification'] = true;
-            }
+        $checkResults = null;
 
-            Artisan::call(RunHealthChecksCommand::class, $parameters);
+        if ($this->option('fresh')) {
+            $checkResults = $this->runFreshChecks();
+
+            if ($checkResults === false) {
+                return self::FAILURE;
+            }
         }
 
-        $resultStore = app(ResultStore::class);
-
-        $checkResults = $resultStore->latestResults();
+        $checkResults ??= app(ResultStore::class)->latestResults();
 
         renderUsing($this->output);
         render(view('health::list-cli', [
@@ -59,6 +58,61 @@ class ListHealthChecksCommand extends Command
             Status::failed(), Status::crashed() => 'text-red-600',
             default => ''
         };
+    }
+
+    protected function runFreshChecks(): StoredCheckResults|false|null
+    {
+        $parameters = $this->runHealthChecksCommandParameters();
+
+        if (SuiteNames::from($this->option('suites')) === []) {
+            return $this->runHealthChecksCommand($parameters)
+                ? app(ResultStore::class)->latestResults()
+                : false;
+        }
+
+        $succeeded = true;
+
+        $checkResults = TransientHealthResults::capture(function () use ($parameters, &$succeeded) {
+            unset($parameters['--do-not-store-results']);
+
+            $parameters['--store-suite-results'] = true;
+
+            $succeeded = $this->runHealthChecksCommand($parameters);
+        });
+
+        return $succeeded ? $checkResults : false;
+    }
+
+    /**
+     * @return array<string, array<int, string>|bool>
+     */
+    protected function runHealthChecksCommandParameters(): array
+    {
+        $parameters = SuiteNames::toArtisanOptions($this->option('suites'));
+
+        if ($this->option('do-not-store-results')) {
+            $parameters['--do-not-store-results'] = true;
+        }
+
+        if ($this->option('no-notification')) {
+            $parameters['--no-notification'] = true;
+        }
+
+        return $parameters;
+    }
+
+    /**
+     * @param  array<string, array<int, string>|bool>  $parameters
+     */
+    protected function runHealthChecksCommand(array $parameters): bool
+    {
+        if (Artisan::call(RunHealthChecksCommand::class, $parameters) === self::SUCCESS) {
+            return true;
+        }
+
+        $this->error(trim(Artisan::output()));
+
+        return false;
     }
 
     protected function determineCommandResult(?StoredCheckResults $results): int

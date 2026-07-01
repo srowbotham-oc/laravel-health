@@ -78,6 +78,30 @@ it('will run the checks when the run get parameter is passed and return the resu
         ->and($storedCheckResults->storedCheckResults)->toHaveCount(1);
 });
 
+it('will only run the requested suite when the suites get parameter is passed', function () {
+    Health::clearChecks()
+        ->checks([
+            FakeUsedDiskSpaceCheck::new()->name('Default'),
+        ])
+        ->suite('readiness', [
+            FakeUsedDiskSpaceCheck::new()->name('Readiness'),
+        ]);
+
+    $jsonString = getJson('/?suites=readiness')
+        ->assertSuccessful()
+        ->content();
+
+    $storedCheckResults = StoredCheckResults::fromJson($jsonString);
+
+    expect($storedCheckResults->storedCheckResults)
+        ->toHaveCount(1)
+        ->and($storedCheckResults->storedCheckResults->first()->name)->toBe('Readiness');
+});
+
+it('will return 404 when the requested suite does not exist', function () {
+    getJson('/?suites=missing')->assertNotFound();
+});
+
 it('will return the configured status code for an unhealthy check', function () {
     config()->set('health.json_results_failure_status', Response::HTTP_SERVICE_UNAVAILABLE);
 

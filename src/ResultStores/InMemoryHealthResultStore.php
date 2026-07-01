@@ -11,6 +11,11 @@ class InMemoryHealthResultStore implements ResultStore
 {
     protected static ?StoredCheckResults $storedCheckResults = null;
 
+    public static function clear(): void
+    {
+        self::$storedCheckResults = null;
+    }
+
     public function save(Collection $checkResults): void
     {
         self::$storedCheckResults = new StoredCheckResults(now());

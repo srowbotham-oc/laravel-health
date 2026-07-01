@@ -37,3 +37,19 @@ it('will run the checks when the run get parameter is passed and return the resu
         ->assertViewIs('health::list')
         ->assertSee($this->check->getLabel());
 });
+
+it('will only run the requested suite when the suites get parameter is passed', function () {
+    Health::clearChecks()
+        ->checks([
+            FakeUsedDiskSpaceCheck::new()->name('Default')->label('Default Disk'),
+        ])
+        ->suite('readiness', [
+            FakeUsedDiskSpaceCheck::new()->name('Readiness')->label('Readiness Disk'),
+        ]);
+
+    get('/?suites=readiness')
+        ->assertSuccessful()
+        ->assertViewIs('health::list')
+        ->assertSee('Readiness Disk')
+        ->assertDontSee('Default Disk');
+});

@@ -32,3 +32,12 @@ If you don't want to expose this info, you can add an `auth` middleware.
 ```php
 Route::middleware('auth')->get('health', \Spatie\Health\Http\Controllers\HealthCheckJsonResultsController::class);
 ```
+
+## Running a suite
+
+All health controllers accept a `suites` query parameter. This will run the requested suite and return the fresh results for that request without replacing the latest stored report.
+
+```txt
+/health?suites=readiness
+/health?suites=readiness,deep
+```

@@ -3,7 +3,7 @@ title: On the CLI
 weight: 3
 ---
 
-To view the results of all checks, you can run this artisan command:
+To view the latest stored check results, you can run this artisan command:
 
 ```bash
 php artisan health:list
@@ -15,6 +15,12 @@ If you want to first execute all the checks, so you'll see fresh results, add th
 
 ```bash
 php artisan health:list --fresh
+```
+
+You can freshen and display only one or more suites without replacing the latest stored report.
+
+```bash
+php artisan health:list --fresh --suites=readiness
 ```
 
 When using the `run` option, you can also use the `do-not-store-results` and  `no-notification` options, to avoid storing results and avoid sending a notification.

@@ -3,7 +3,7 @@ title: As JSON
 weight: 4
 ---
 
-The package contains a controller `Spatie\Health\Http\Controllers\HealthCheckJsonResultsController` that can be used the render the latest results of all checks as JSON.  Simply use that controller in your routes on any URL you desire.
+The package contains a controller `Spatie\Health\Http\Controllers\HealthCheckJsonResultsController` that can be used the render the latest stored check results as JSON.  Simply use that controller in your routes on any URL you desire.
 
 ```php
 use Spatie\Health\Http\Controllers\HealthCheckJsonResultsController

@@ -18,9 +18,34 @@ class FakeHealth extends Health
         private array $fakeChecks
     ) {}
 
+    /** @return Collection<int, Check> */
     public function registeredChecks(): Collection
     {
-        return $this->decoratedHealth->registeredChecks()->map(
+        return $this->fakeRegisteredChecks($this->decoratedHealth->registeredChecks());
+    }
+
+    /**
+     * @param  string|array<int, string>  $suites
+     * @return Collection<int, Check>
+     */
+    public function registeredChecksForSuites(string|array $suites): Collection
+    {
+        return $this->fakeRegisteredChecks($this->decoratedHealth->registeredChecksForSuites($suites));
+    }
+
+    /** @return Collection<int, string> */
+    public function registeredSuiteNames(): Collection
+    {
+        return $this->decoratedHealth->registeredSuiteNames();
+    }
+
+    /**
+     * @param  Collection<int, Check>  $checks
+     * @return Collection<int, Check>
+     */
+    protected function fakeRegisteredChecks(Collection $checks): Collection
+    {
+        return $checks->map(
             fn (Check $check) => array_key_exists($check::class, $this->fakeChecks)
                 ? $this->buildFakeCheck($check, $this->fakeChecks[$check::class])
                 : $check
